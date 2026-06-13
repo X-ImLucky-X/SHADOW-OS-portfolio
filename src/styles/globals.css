@@ -1,0 +1,315 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-base: #008080; /* Classic Teal */
+  --bg-surface: #c0c0c0; /* Classic Win95 Grey */
+  --bg-elevated: #d4d4d8;
+  --accent-green: #008000;
+  --accent-violet: #000080;
+  --accent-pink: #800080;
+  --accent-cyan: #008080;
+  --accent-amber: #808000;
+}
+
+body {
+  font-family: 'JetBrains Mono', 'VT323', monospace;
+  background-color: var(--bg-base);
+  color: #000000;
+  overflow-x: hidden;
+  margin: 0;
+}
+
+/* Custom Webkit scrollbars styled like classic Win95 sliders */
+::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+
+::-webkit-scrollbar-track {
+  background: #dfdfdf;
+  border: 1px solid #808080;
+  box-shadow: inset 1px 1px 0px #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+  border: 2px solid;
+  border-top-color: #ffffff;
+  border-left-color: #ffffff;
+  border-right-color: #808080;
+  border-bottom-color: #808080;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c8c8c8;
+}
+
+/* Custom utility styles - retro panels with no blur */
+.glass-panel {
+  background: #c0c0c0;
+  border: 2px solid;
+  border-top-color: #ffffff;
+  border-left-color: #ffffff;
+  border-right-color: #404040;
+  border-bottom-color: #404040;
+}
+
+.glass-panel-active {
+  background: #c0c0c0;
+  border: 2px solid;
+  border-top-color: #ffffff;
+  border-left-color: #ffffff;
+  border-right-color: #404040;
+  border-bottom-color: #404040;
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 1);
+}
+
+/* CRT Screen Scanlines & overlays */
+.crt-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(255, 255, 255, 0.012) 2px,
+    rgba(255, 255, 255, 0.012) 4px
+  );
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* Blinking terminal cursor animation */
+.terminal-cursor-blink {
+  animation: cursor-blink 1s step-end infinite;
+}
+
+@keyframes cursor-blink {
+  50% { opacity: 0; }
+}
+
+/* Custom styling overrides for xterm.js terminal integration */
+.xterm {
+  padding: 12px;
+  background: transparent !important;
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+.xterm-viewport {
+  background: transparent !important;
+  overflow-y: auto !important;
+}
+
+.xterm-screen {
+  background: transparent !important;
+}
+
+/* Custom selection styling */
+::selection {
+  background: rgba(0, 245, 160, 0.2);
+  color: var(--accent-green);
+}
+
+/* Prevent image dragging and blue highlights on touch */
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* Matrix font styling helpers */
+@font-face {
+  font-family: 'Matrix';
+  src: local('Courier New'), local('Courier');
+}
+
+/* Retro pixel typography helper */
+.font-pixel {
+  font-family: 'VT323', monospace !important;
+  font-size: 19px;
+}
+
+.font-arcade {
+  font-family: 'Press Start 2P', monospace !important;
+  font-size: 13px;
+}
+
+/* Windows 95 retro bevel borders & buttons */
+.retro-border {
+  border-style: solid;
+  border-width: 2px;
+  border-top-color: #ffffff;
+  border-left-color: #ffffff;
+  border-right-color: #404040;
+  border-bottom-color: #404040;
+}
+
+.retro-border-inset {
+  border-style: solid;
+  border-width: 2px;
+  border-top-color: #404040;
+  border-left-color: #404040;
+  border-right-color: #ffffff;
+  border-bottom-color: #ffffff;
+}
+
+.retro-button-win95 {
+  border-style: solid;
+  border-width: 2px;
+  border-top-color: #ffffff;
+  border-left-color: #ffffff;
+  border-right-color: #404040;
+  border-bottom-color: #404040;
+  background-color: #c0c0c0;
+  color: #000000;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.retro-button-win95:active {
+  border-top-color: #404040;
+  border-left-color: #404040;
+  border-right-color: #ffffff;
+  border-bottom-color: #ffffff;
+}
+
+/* Retro theme global overrides */
+.retro-theme {
+  --bg-base: #008080;
+  --bg-surface: #c0c0c0;
+  --bg-elevated: #d4d4d8;
+  --accent-green: #008000;
+  --accent-violet: #000080;
+  --accent-pink: #800080;
+  --accent-cyan: #008080;
+  --accent-amber: #808000;
+  font-family: 'VT323', monospace !important;
+  font-size: 18px;
+}
+
+/* Override window rendering in retro theme */
+.retro-theme .window-container {
+  background-color: #c0c0c0 !important;
+  color: #000000 !important;
+  border-style: solid !important;
+  border-width: 3px !important;
+  border-top-color: #ffffff !important;
+  border-left-color: #ffffff !important;
+  border-right-color: #404040 !important;
+  border-bottom-color: #404040 !important;
+  box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.retro-theme .window-titlebar {
+  background: #000080 !important;
+  color: #ffffff !important;
+  font-family: 'VT323', monospace !important;
+  font-size: 16px !important;
+  height: 28px !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+}
+
+.retro-theme .window-titlebar div {
+  color: #ffffff !important;
+}
+
+/* Custom retro buttons in window controls */
+.retro-theme .window-controls {
+  order: 2; /* Put controls on the right, like Windows */
+  display: flex;
+  gap: 2px !important;
+}
+
+.retro-theme .window-titlebar .window-controls button {
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 0px !important;
+  background-color: #c0c0c0 !important;
+  border-style: solid !important;
+  border-width: 2px !important;
+  border-top-color: #ffffff !important;
+  border-left-color: #ffffff !important;
+  border-right-color: #404040 !important;
+  border-bottom-color: #404040 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #000000 !important;
+}
+
+.retro-theme .window-titlebar .window-controls button span {
+  display: none !important; /* hide default mac icons */
+}
+
+/* Window body in retro theme */
+.retro-theme .window-container div.flex-1 {
+  border-style: solid !important;
+  border-width: 2px !important;
+  border-top-color: #404040 !important;
+  border-left-color: #404040 !important;
+  border-right-color: #ffffff !important;
+  border-bottom-color: #ffffff !important;
+  margin: 4px !important;
+}
+
+/* Desktop Shortcuts in retro theme */
+.retro-theme .group div {
+  background-color: #c0c0c0 !important;
+  border-style: solid !important;
+  border-width: 2px !important;
+  border-top-color: #ffffff !important;
+  border-left-color: #ffffff !important;
+  border-right-color: #404040 !important;
+  border-bottom-color: #404040 !important;
+  border-radius: 0px !important;
+  color: #000000 !important;
+}
+
+.retro-theme .group span {
+  color: #ffffff !important;
+  font-weight: bold !important;
+  font-size: 14px !important;
+}
+
+/* Taskbar / Dock in retro theme */
+.retro-theme .dock-container .glass-panel {
+  background-color: #c0c0c0 !important;
+  border-style: solid !important;
+  border-width: 3px !important;
+  border-top-color: #ffffff !important;
+  border-left-color: #ffffff !important;
+  border-right-color: #404040 !important;
+  border-bottom-color: #404040 !important;
+  border-radius: 0px !important;
+  box-shadow: 2px 2px 10px rgba(0,0,0,0.4) !important;
+  backdrop-filter: none !important;
+}
+
+.retro-theme .dock-container button {
+  border-radius: 0px !important;
+  border-style: solid !important;
+  border-width: 2px !important;
+  border-top-color: #ffffff !important;
+  border-left-color: #ffffff !important;
+  border-right-color: #404040 !important;
+  border-bottom-color: #404040 !important;
+}
+
+.retro-theme .taskbar-container {
+  background-color: #c0c0c0 !important;
+  color: #000000 !important;
+  border-bottom: 2px solid #404040 !important;
+  height: 30px !important;
+}
+
+.retro-theme .taskbar-container div, .retro-theme .taskbar-container span {
+  color: #000000 !important;
+  font-family: 'VT323', monospace !important;
+  font-size: 16px !important;
+}
