@@ -1,6 +1,8 @@
 # 💻 ShadowOS v2.0
 **An Interactive Retro-Styled Developer Portfolio**
 
+🌐 **Live Demo:** [https://shadow-os-portfolio.vercel.app/](https://shadow-os-portfolio.vercel.app/)
+
 ShadowOS is a modern, high-fidelity developer portfolio styled as a retro, science-fiction operating system. Built from scratch with a custom window manager, it simulates a live OS environment directly in the browser.
 
 ---
@@ -34,7 +36,7 @@ ShadowOS is a modern, high-fidelity developer portfolio styled as a retro, scien
 ### Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/X-ImLucky-X/ShadowOS.git
+   git clone https://github.com/X-ImLucky-X/SHADOW-OS-portfolio.git
    ```
 2. Install dependencies:
    ```bash
