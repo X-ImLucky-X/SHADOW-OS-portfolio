@@ -1,7 +1,8 @@
 import React from 'react';
-import { radarSkillsData, categorizedSkills } from '../data/skills';
+import { useTelemetryStore } from '../store/telemetryStore';
 
 export const SkillsApp: React.FC = () => {
+  const { radarSkills: radarSkillsData, categorizedSkills } = useTelemetryStore();
   // Compute block-style progress bar
   const renderMeter = (value: number) => {
     const totalBlocks = 12;

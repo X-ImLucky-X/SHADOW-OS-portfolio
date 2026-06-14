@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSystemStore } from './store/systemStore';
+import { useTelemetryStore } from './store/telemetryStore';
 
 // Views and Screens
 import { Loader } from './components/Loader';
@@ -19,8 +20,17 @@ export const App: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    // Initialize telemetry background sync
+    useTelemetryStore.getState().initialize();
+  }, []);
+
+  useEffect(() => {
     const handleViewportResize = () => {
-      setIsMobile(window.innerWidth < 768);
+      const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isMobileSize = window.innerWidth < 768 || (window.innerHeight < 768 && window.innerWidth < 1024);
+      const isTouchDevice = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+      
+      setIsMobile(isMobileUA || (isMobileSize && isTouchDevice) || window.innerWidth < 768);
     };
 
     handleViewportResize();

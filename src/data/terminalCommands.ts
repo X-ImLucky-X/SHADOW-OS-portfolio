@@ -1,6 +1,7 @@
 import { resumeData } from './resume';
 import { projectsData } from './projects';
 import { radarSkillsData } from './skills';
+import { useTelemetryStore } from '../store/telemetryStore';
 
 export interface CommandResponse {
   lines: string[];
@@ -58,25 +59,32 @@ export const parseCommand = (input: string, uptimeSec: number): CommandResponse 
         ],
       };
 
-    case 'skills':
+    case 'skills': {
+      const storeSkills = useTelemetryStore.getState().radarSkills;
       return {
         lines: [
           '\x1b[38;5;129mSkills Inventory:\x1b[0m',
-          ...radarSkillsData.map(s => `  ${s.subject.padEnd(15)}: [${'█'.repeat(Math.round(s.value / 10))}${'░'.repeat(10 - Math.round(s.value / 10))}] ${s.value}%`),
+          ...storeSkills.map(s => `  ${s.subject.padEnd(15)}: [${'█'.repeat(Math.round(s.value / 10))}${'░'.repeat(10 - Math.round(s.value / 10))}] ${s.value}%`),
           '',
           'Run \x1b[38;5;81mopen skills\x1b[0m to view full graphics and badges.'
         ],
       };
+    }
 
-    case 'projects':
+    case 'projects': {
+      const storeProjects = useTelemetryStore.getState().projects;
       return {
         lines: [
           '\x1b[38;5;201mFeatured Builds:\x1b[0m',
-          ...projectsData.map(p => `  \x1b[38;5;81m${p.title}\x1b[0m: ${p.shortDesc} (${p.tech.join(', ')})`),
+          ...storeProjects.map(p => {
+            const starsText = p.stars ? ` (★ ${p.stars})` : '';
+            return `  \x1b[38;5;81m${p.title}\x1b[0m${starsText}: ${p.shortDesc} (${p.tech.join(', ')})`;
+          }),
           '',
           'Run \x1b[38;5;81mopen projects\x1b[0m to open the Software Store app.'
         ],
       };
+    }
 
     case 'resume':
       return {
@@ -187,10 +195,12 @@ export const parseCommand = (input: string, uptimeSec: number): CommandResponse 
         action: 'clear',
       };
 
-    case 'neofetch':
+    case 'neofetch': {
       const mins = Math.floor(uptimeSec / 60);
       const secs = uptimeSec % 60;
       const uptimeStr = mins > 0 ? `${mins} mins, ${secs} secs` : `${secs} secs`;
+      const githubStats = useTelemetryStore.getState().githubData;
+      const leetcodeStats = useTelemetryStore.getState().leetcodeData;
       return {
         lines: [
           ...ASCIILogo,
@@ -204,9 +214,11 @@ export const parseCommand = (input: string, uptimeSec: number): CommandResponse 
           `   CPU:       Virtual AI Node (Gemini Core)`,
           `   GPU:       HTML5 Canvas2D/WebGL`,
           `   RAM:       8.00 GB (Emulated)`,
-          `   Display:   ${window.innerWidth}x${window.innerHeight}`
+          `   Display:   ${window.innerWidth}x${window.innerHeight}`,
+          `   Telemetry: Stars: ★ ${githubStats.stars} // Commits: ${githubStats.commits} // Solved: ${leetcodeStats.solved} DSA`
         ],
       };
+    }
 
     case 'game':
       return {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { projectsData, Project } from '../data/projects';
+import { Project, projectsData } from '../data/projects';
+import { useTelemetryStore } from '../store/telemetryStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { 
   Github, 
@@ -284,7 +285,8 @@ const compileSteps = [
 
 export const ProjectsApp: React.FC = () => {
   const { addNotification } = useNotificationStore();
-  const [selectedProj, setSelectedProj] = useState<Project>(projectsData[0]);
+  const { projects } = useTelemetryStore();
+  const [selectedProj, setSelectedProj] = useState<Project>(projects[0] || projectsData[0]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
   
@@ -404,16 +406,16 @@ export const ProjectsApp: React.FC = () => {
 
   // Category navigation items
   const categories = [
-    { key: 'all', label: 'All Packages', count: projectsData.length },
-    { key: 'nlp', label: 'NLP / Text', count: projectsData.filter(p => p.category === 'nlp').length },
-    { key: 'agents', label: 'Agentic AI', count: projectsData.filter(p => p.category === 'agents').length },
-    { key: 'vision', label: 'Computer Vision', count: projectsData.filter(p => p.category === 'vision').length },
-    { key: 'fullstack', label: 'Full-Stack SaaS', count: projectsData.filter(p => p.category === 'fullstack').length },
-    { key: 'data', label: 'Data & Infra', count: projectsData.filter(p => p.category === 'data').length },
+    { key: 'all', label: 'All Packages', count: projects.length },
+    { key: 'nlp', label: 'NLP / Text', count: projects.filter(p => p.category === 'nlp').length },
+    { key: 'agents', label: 'Agentic AI', count: projects.filter(p => p.category === 'agents').length },
+    { key: 'vision', label: 'Computer Vision', count: projects.filter(p => p.category === 'vision').length },
+    { key: 'fullstack', label: 'Full-Stack SaaS', count: projects.filter(p => p.category === 'fullstack').length },
+    { key: 'data', label: 'Data & Infra', count: projects.filter(p => p.category === 'data').length },
   ];
 
   // Filtering logic
-  const filteredProjects = projectsData.filter(p => {
+  const filteredProjects = projects.filter(p => {
     const matchesCategory = activeCategory === 'all' || p.category === activeCategory;
     const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           p.tech.some(t => t.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -497,6 +499,7 @@ export const ProjectsApp: React.FC = () => {
           <div className="text-[11px] border-t border-[#808080] pt-2 text-[#404040] font-bold">
             <div>Version: v{selectedProj.version}</div>
             <div>Directory: @shadowos/{selectedProj.id}</div>
+            {selectedProj.stars !== undefined && <div>Stars: ★ {selectedProj.stars}</div>}
           </div>
         </div>
 

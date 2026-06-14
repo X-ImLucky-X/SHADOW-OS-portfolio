@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Terminal, Wifi } from 'lucide-react';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { useTelemetryStore } from '../store/telemetryStore';
 
 interface Message {
   id: string;
@@ -56,29 +57,35 @@ export const AIApp: React.FC = () => {
       
       Feel free to connect or send a direct message for inquiries or collaborations!`;
     }
-    if (q.includes('github') || q.includes('git') || q.includes('repo')) {
+    if (q.includes('github') || q.includes('repo') || q.includes('git')) {
+      const githubStats = useTelemetryStore.getState().githubData;
       return `LAKSHYA'S GITHUB TELEMETRY:
       Username: X-ImLucky-X
       URL: https://github.com/X-ImLucky-X
       
       Highlights:
-      - 10+ Public repositories
-      - Active commit activity on local ML pipelines and agent orchestrators.
-      - Core repository contributions in C++, Python, and TypeScript.`;
+      - Total Stars: ${githubStats.stars}
+      - Public Repositories: ${githubStats.publicRepos}
+      - Total Commits: ${githubStats.commits}
+      - Contributions count: ${githubStats.contributions}
+      - Current Streak: ${githubStats.currentStreak} days (Max: ${githubStats.longestStreak})
+      - Top languages: ${githubStats.languages.slice(0, 3).map(l => `${l.name} (${l.percentage.toFixed(1)}%)`).join(', ')}`;
     }
     if (q.includes('leetcode') || q.includes('dsa') || q.includes('knight')) {
+      const leetcodeStats = useTelemetryStore.getState().leetcodeData;
+      const dsaLevel = leetcodeStats.contestRating >= 1600 ? 'KNIGHT' : 'SPECIALIST';
       return `LAKSHYA'S LEETCODE PROFILE STATS:
       Profile: https://leetcode.com/u/lakshyakumarsingh1/
       
       Metrics Dashboard:
-      - System Badge: LEETCODE KNIGHT
-      - Contest Rating: 1714.24 (Top 12.57% globally)
-      - Contests Attended: 31
-      - Total Solved: 357 Problems
-        * Easy Solved: 172
-        * Medium Solved: 167
-        * Hard Solved: 18
-      - Global Profile Rank: ~358,200`;
+      - System Badge: LEETCODE ${dsaLevel}
+      - Contest Rating: ${leetcodeStats.contestRating.toFixed(2)} (Top ${leetcodeStats.contestTopPercentage.toFixed(2)}% globally)
+      - Contests Attended: ${leetcodeStats.contestAttend}
+      - Total Solved: ${leetcodeStats.solved} Problems
+        * Easy Solved: ${leetcodeStats.easySolved}
+        * Medium Solved: ${leetcodeStats.mediumSolved}
+        * Hard Solved: ${leetcodeStats.hardSolved}
+      - Global Profile Rank: ${leetcodeStats.ranking.toLocaleString()}`;
     }
     if (q.includes('contact') || q.includes('email') || q.includes('phone') || q.includes('number') || q.includes('mail') || q.includes('call')) {
       return `LAKSHYA'S SECURE CONTACT INFORMATION:
