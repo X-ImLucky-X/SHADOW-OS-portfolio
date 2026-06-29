@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useWindowStore } from '../store/windowStore';
 import { useTelemetryStore } from '../store/telemetryStore';
 import { 
@@ -15,8 +15,7 @@ import {
   Star,
   GitBranch,
   AlertCircle,
-  Eye,
-  Settings
+  Eye
 } from 'lucide-react';
 
 export const BrowserApp: React.FC = () => {
@@ -35,6 +34,7 @@ export const BrowserApp: React.FC = () => {
   const [htmlContent, setHtmlContent] = useState<string>('');
   const [loadingHtml, setLoadingHtml] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [useWebProxy, setUseWebProxy] = useState(false);
 
   // Retro GitHub Viewer States
   const [isGithubUrl, setIsGithubUrl] = useState(false);
@@ -111,6 +111,30 @@ export const BrowserApp: React.FC = () => {
     setLoadingHtml(true);
     setErrorMsg(null);
     setHtmlContent('');
+    setUseWebProxy(false);
+
+    // If Google, use the frame-friendly Google page directly
+    if (url.includes('google.com')) {
+      const queryMatch = url.match(/q=([^&]+)/);
+      const query = queryMatch ? queryMatch[1] : '';
+      setHtmlContent(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Google Search</title>
+          <style>
+            html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+            iframe { width: 100%; height: 100%; border: none; }
+          </style>
+        </head>
+        <body>
+          <iframe src="https://www.google.com/search?igu=1${query ? '&q=' + query : ''}"></iframe>
+        </body>
+        </html>
+      `);
+      setLoadingHtml(false);
+      return;
+    }
 
     // Fetch via raw CORS proxy
     fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`)
@@ -124,7 +148,7 @@ export const BrowserApp: React.FC = () => {
       })
       .catch(err => {
         console.error('Proxy load error:', err);
-        setErrorMsg('WebNavigator failed to open the target website. Click "Open in tab" to bypass restrictions.');
+        setErrorMsg('WebNavigator failed to open the target website. Click "Open in tab" or switch to the unblocked web proxy.');
       })
       .finally(() => {
         setLoadingHtml(false);
@@ -263,10 +287,34 @@ export const BrowserApp: React.FC = () => {
           htmlUrl: localProj.github,
           liveUrl: localProj.live
         });
+      } else {
+        setRepoInfo({
+          title: repo,
+          description: 'Failed to retrieve description.',
+          stars: 0,
+          forks: 0,
+          language: 'Unknown',
+          openIssues: 0,
+          owner: owner,
+          htmlUrl: `https://github.com/${owner}/${repo}`,
+          liveUrl: null
+        });
       }
       setReadmeContent(readmeText || 'No README.md content found.');
     }).catch(err => {
       console.error(err);
+      if (localProj) {
+        setRepoInfo({
+          title: localProj.title,
+          description: localProj.shortDesc,
+          stars: localProj.stars || 0,
+          forks: 0,
+          language: localProj.tech[0],
+          owner: owner,
+          htmlUrl: localProj.github,
+          liveUrl: localProj.live
+        });
+      }
     }).finally(() => {
       setLoadingRepo(false);
     });
@@ -291,12 +339,67 @@ export const BrowserApp: React.FC = () => {
           following: userData.following,
           htmlUrl: userData.html_url
         });
+      } else {
+        // Fallback profile mock for rate-limiting
+        setProfileInfo({
+          login: username,
+          name: username === 'X-ImLucky-X' ? 'Lakshya Kumar Singh' : username,
+          avatarUrl: username === 'X-ImLucky-X' ? 'https://avatars.githubusercontent.com/u/136382281?v=4' : '',
+          bio: username === 'X-ImLucky-X' ? 'Passionate Developer & Open Source Contributor' : 'GitHub user profile.',
+          location: 'India',
+          company: 'None',
+          publicRepos: username === 'X-ImLucky-X' ? projects.length : 0,
+          followers: 12,
+          following: 8,
+          htmlUrl: `https://github.com/${username}`
+        });
       }
-      if (Array.isArray(reposData)) {
+
+      if (Array.isArray(reposData) && reposData.length > 0) {
         setProfileRepos(reposData.filter((r: any) => !r.fork));
+      } else {
+        // Fallback to local store projects list for rate limiting
+        if (username.toLowerCase() === 'x-imlucky-x') {
+          const mappedRepos = projects.map(p => ({
+            id: p.id,
+            name: p.title,
+            description: p.shortDesc,
+            language: p.tech[0],
+            stargazers_count: p.stars || 0,
+            html_url: p.github,
+            fork: false
+          }));
+          setProfileRepos(mappedRepos);
+        } else {
+          setProfileRepos([]);
+        }
       }
     }).catch(err => {
       console.error(err);
+      if (username.toLowerCase() === 'x-imlucky-x') {
+        setProfileInfo({
+          login: username,
+          name: 'Lakshya Kumar Singh',
+          avatarUrl: 'https://avatars.githubusercontent.com/u/136382281?v=4',
+          bio: 'Passionate Developer & Open Source Contributor',
+          location: 'India',
+          company: 'None',
+          publicRepos: projects.length,
+          followers: 12,
+          following: 8,
+          htmlUrl: `https://github.com/${username}`
+        });
+        const mappedRepos = projects.map(p => ({
+          id: p.id,
+          name: p.title,
+          description: p.shortDesc,
+          language: p.tech[0],
+          stargazers_count: p.stars || 0,
+          html_url: p.github,
+          fork: false
+        }));
+        setProfileRepos(mappedRepos);
+      }
     }).finally(() => {
       setLoadingProfile(false);
     });
@@ -339,7 +442,7 @@ export const BrowserApp: React.FC = () => {
         {isGithubUrl && (
           <button 
             onClick={() => setViewMode(viewMode === 'live' ? 'retro' : 'live')}
-            className="px-2 py-0.5 bg-[#dfdfdf] border border-t-white border-l-white border-b-black border-r-black active:border-t-black active:border-l-black active:border-b-white active:border-r-white font-pixel text-[10px] uppercase flex items-center gap-1 cursor-pointer outline-none hover:bg-gray-100"
+            className="px-2 py-0.5 bg-[#dfdfdf] border border-[#808080] font-pixel text-[10px] uppercase flex items-center gap-1 cursor-pointer outline-none hover:bg-gray-100"
           >
             {viewMode === 'live' ? <Code className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             {viewMode === 'live' ? 'Switch to Retro View' : 'Switch to Live View'}
@@ -408,7 +511,29 @@ export const BrowserApp: React.FC = () => {
       {/* 3. Browser Viewport Area */}
       <div className="flex-1 w-full bg-[#3a6ea5] p-3 overflow-hidden flex flex-col relative">
         
-        {viewMode === 'live' ? (
+        {useWebProxy ? (
+          /* Embed unblocked CroxyProxy inside the iframe if direct proxy failover occurs */
+          <div className="flex-1 w-full flex flex-col bg-white border-2 border-t-[#808080] border-l-[#808080] border-b-white border-r-white overflow-hidden relative">
+            <iframe 
+              src="https://www.croxyproxy.com/" 
+              title="Unblocked Proxy Viewport" 
+              className="w-full flex-1 border-none"
+            />
+            {/* Warning info bar */}
+            <div className="bg-[#ffffd0] border-t border-[#808080] p-1.5 flex justify-between items-center text-xs shrink-0 select-none z-40">
+              <span className="flex items-center gap-1.5 text-yellow-900 font-bold">
+                <AlertCircle className="w-4 h-4 text-yellow-700" />
+                Unblocked Web Proxy Mode active. You can browse all sites unblocked inside this pane.
+              </span>
+              <button 
+                onClick={() => setUseWebProxy(false)}
+                className="px-2 py-0.5 bg-[#c0c0c0] font-bold border border-t-white border-l-white border-b-black border-r-black hover:bg-gray-100 text-black text-[10px] uppercase cursor-pointer"
+              >
+                Exit Proxy Mode
+              </button>
+            </div>
+          </div>
+        ) : viewMode === 'live' ? (
           /* Live Web Browser Viewport */
           <div className="flex-1 w-full flex flex-col bg-white border-2 border-t-[#808080] border-l-[#808080] border-b-white border-r-white relative overflow-hidden">
             
@@ -435,11 +560,17 @@ export const BrowserApp: React.FC = () => {
                 </div>
               </div>
             ) : errorMsg ? (
-              /* Error fall back dialog */
+              /* Error fallback dialog */
               <div className="w-full h-full flex flex-col items-center justify-center font-pixel text-black p-4 gap-4 text-center">
                 <AlertCircle className="w-12 h-12 text-red-600" />
                 <div className="text-sm font-bold max-w-sm">{errorMsg}</div>
                 <div className="flex gap-2">
+                  <button 
+                    onClick={() => setUseWebProxy(true)}
+                    className="px-4 py-1 bg-green-700 text-white font-bold border-2 border-t-white border-l-white border-b-black border-r-black active:border-t-black active:border-l-black active:border-b-white active:border-r-white text-xs cursor-pointer"
+                  >
+                    Load via Web Proxy
+                  </button>
                   <button 
                     onClick={() => loadLivePage(browserUrl)}
                     className="px-4 py-1 bg-[#c0c0c0] font-bold border-2 border-t-white border-l-white border-b-black border-r-black active:border-t-black active:border-l-black active:border-b-white active:border-r-white text-xs cursor-pointer"
@@ -471,14 +602,22 @@ export const BrowserApp: React.FC = () => {
                 <AlertCircle className="w-4 h-4 text-yellow-700" />
                 Proxied page. Click links to navigate, or open natively to sign in.
               </span>
-              <a 
-                href={browserUrl} 
-                target="_blank" 
-                rel="noreferrer"
-                className="px-2 py-0.5 bg-[#c0c0c0] font-bold border border-t-white border-l-white border-b-black border-r-black hover:bg-[#dfdfdf] text-black shrink-0 text-[10px] uppercase flex items-center gap-1"
-              >
-                Open in tab <ExternalLink className="w-3.5 h-3.5" />
-              </a>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setUseWebProxy(true)}
+                  className="px-2 py-0.5 bg-[#c0c0c0] border border-t-white border-l-white border-b-black border-r-black hover:bg-gray-100 text-black text-[10px] uppercase font-bold cursor-pointer"
+                >
+                  Proxy Mode
+                </button>
+                <a 
+                  href={browserUrl} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="px-2 py-0.5 bg-[#c0c0c0] font-bold border border-t-white border-l-white border-b-black border-r-black hover:bg-[#dfdfdf] text-black shrink-0 text-[10px] uppercase flex items-center gap-1"
+                >
+                  Open in tab <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
             </div>
 
           </div>
