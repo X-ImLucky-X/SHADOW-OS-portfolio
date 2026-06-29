@@ -7,6 +7,7 @@ import { useSystemStore } from '../store/systemStore';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { projectsData } from '../data/projects';
 import { resumeData } from '../data/resume';
+import { useTelemetryStore } from '../store/telemetryStore';
 import { Github, Linkedin, Mail, ArrowRight, BookOpen, Terminal as TermIcon, ExternalLink } from 'lucide-react';
 
 // --- Typewriter Component ---
@@ -51,6 +52,7 @@ const PhoneModel: React.FC = () => {
   const lastMouseY = useRef(0);
   const lastActive = useRef(Date.now());
   const { heroActiveScreen, setHeroActiveScreen } = useSystemStore();
+  const { projects } = useTelemetryStore();
 
   useFrame((state) => {
     if (!phoneGroupRef.current) return;
@@ -243,7 +245,7 @@ const PhoneModel: React.FC = () => {
                           01 // PROJECTS
                         </div>
                         <div className="flex flex-col gap-2 max-h-[420px] overflow-y-auto pr-1">
-                          {projectsData.map((p) => (
+                          {projects.map((p) => (
                             <div
                               key={p.id}
                               className="bg-bg-surface border border-white/5 p-2.5 rounded-lg flex flex-col gap-1 hover:border-accent-violet/30 transition-colors"

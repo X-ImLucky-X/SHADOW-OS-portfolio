@@ -244,27 +244,16 @@ export const AboutApp: React.FC = () => {
             {/* Custom SVG Line Graph */}
             <div className="w-full bg-[#050508] border border-[#808080] p-4 flex items-center justify-center">
               <svg className="w-full h-48 md:h-56 max-w-3xl" viewBox="0 0 700 200">
-                {/* Grid line helper backgrounds */}
-                {[0, 25, 50, 75, 100].map((percent) => {
-                  const yVal = 20 + (percent / 100) * 150;
-                  const labelValue = Math.round((1 - percent / 100) * 12);
-                  return (
-                    <g key={percent} opacity="0.2">
-                      <line x1="40" y1={yVal} x2="680" y2={yVal} stroke="#00ff00" strokeWidth="0.75" strokeDasharray="3 3" />
-                      <text x="32" y={yVal + 3} fill="#00ff00" fontSize="11" textAnchor="end" className="font-pixel">{labelValue}</text>
-                    </g>
-                  );
-                })}
-
-                {/* Graph Lines & Area */}
                 {(() => {
                   const data = githubData.activity;
+                  const maxCount = Math.max(...data.map(d => d.count), 0);
+                  const maxVal = Math.max(12, maxCount + 2); // Buffer of 2, minimum max of 12
+
                   const paddingLeft = 40;
                   const paddingRight = 20;
                   const chartWidth = 700 - paddingLeft - paddingRight;
                   const chartHeight = 150;
                   const spacing = chartWidth / (data.length - 1);
-                  const maxVal = 12;
 
                   const coords = data.map((d, idx) => {
                     const x = paddingLeft + idx * spacing;
@@ -277,6 +266,18 @@ export const AboutApp: React.FC = () => {
 
                   return (
                     <>
+                      {/* Grid line helper backgrounds */}
+                      {[0, 25, 50, 75, 100].map((percent) => {
+                        const yVal = 20 + (percent / 100) * 150;
+                        const labelValue = Math.round((1 - percent / 100) * maxVal);
+                        return (
+                          <g key={percent} opacity="0.2">
+                            <line x1="40" y1={yVal} x2="680" y2={yVal} stroke="#00ff00" strokeWidth="0.75" strokeDasharray="3 3" />
+                            <text x="32" y={yVal + 3} fill="#00ff00" fontSize="11" textAnchor="end" className="font-pixel">{labelValue}</text>
+                          </g>
+                        );
+                      })}
+
                       <path d={areaPath} fill="rgba(0, 255, 0, 0.08)" />
                       <path d={linePath} stroke="#00ff00" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                       

@@ -139,15 +139,53 @@ const mergeCategorizedSkills = (githubLangs: LanguageInfo[]): SkillGroup[] => {
   return baseCategories;
 };
 
-// Sync repository stars into our static projects metadata
+// Calculate streaks dynamically based on 30-day activity array
+const calculateStreaks = (activity: { day: string; count: number }[]) => {
+  let longestStreak = 0;
+  let runningStreak = 0;
+
+  const counts = activity.map(a => a.count);
+  
+  for (let i = 0; i < counts.length; i++) {
+    if (counts[i] > 0) {
+      runningStreak++;
+      if (runningStreak > longestStreak) {
+        longestStreak = runningStreak;
+      }
+    } else {
+      runningStreak = 0;
+    }
+  }
+
+  let currentStreak = 0;
+  for (let i = counts.length - 1; i >= 0; i--) {
+    if (counts[i] > 0) {
+      currentStreak++;
+    } else {
+      if (i === counts.length - 1) {
+        continue;
+      }
+      break;
+    }
+  }
+
+  return {
+    currentStreak: Math.max(1, currentStreak),
+    longestStreak: Math.max(8, longestStreak)
+  };
+};
+
+// Sync repository stars into our static projects metadata, and dynamically append unmatched public repos
 const syncProjectsWithGithub = (repos: any[]): Project[] => {
-  return projectsData.map(p => {
+  const matchedRepoIds = new Set<number>();
+
+  const updatedCurated = projectsData.map(p => {
     const matchingRepo = repos.find(r => {
       const name = r.name.toLowerCase();
       const projId = p.id.toLowerCase();
       return name === projId || 
-             name === projId.replace('-', '') || 
-             name === projId.replace('-', '_') ||
+             name === projId.replace(/-/g, '') || 
+             name === projId.replace(/-/g, '_') ||
              (projId === 'pilot-os' && name === 'autopilot-os') ||
              (projId === 'secure-storage' && name === 'secure_cloud_storage') ||
              (projId === 'sign-language' && name === 'sign-language-recognition-system') ||
@@ -155,6 +193,7 @@ const syncProjectsWithGithub = (repos: any[]): Project[] => {
     });
 
     if (matchingRepo) {
+      matchedRepoIds.add(matchingRepo.id);
       return {
         ...p,
         stars: matchingRepo.stargazers_count || 0,
@@ -162,6 +201,65 @@ const syncProjectsWithGithub = (repos: any[]): Project[] => {
     }
     return p;
   });
+
+  const dynamicProjects: Project[] = [];
+
+  repos.forEach(repo => {
+    if (matchedRepoIds.has(repo.id)) return;
+    if (repo.fork) return; // Skip forks to highlight original work
+
+    const topics: string[] = repo.topics || [];
+    let category: 'nlp' | 'agents' | 'vision' | 'fullstack' | 'data' = 'data';
+    let categoryLabel = 'Data & Infra';
+
+    const hasTopic = (keywords: string[]) => keywords.some(kw => topics.some(t => t.toLowerCase().includes(kw)));
+    const nameLower = repo.name.toLowerCase();
+    const descLower = (repo.description || '').toLowerCase();
+    const hasText = (keywords: string[]) => keywords.some(kw => nameLower.includes(kw) || descLower.includes(kw));
+
+    if (hasTopic(['nlp', 'llm', 'bert', 'gpt', 'transformer', 'text']) || hasText(['nlp', 'llm', 'bert', 'gpt', 'transformer', 'text-to-speech', 'speech-to-text'])) {
+      category = 'nlp';
+      categoryLabel = 'NLP / Text';
+    } else if (hasTopic(['agent', 'langchain', 'langgraph', 'crewai', 'autogen']) || hasText(['agent', 'langchain', 'langgraph', 'crewai', 'autogen'])) {
+      category = 'agents';
+      categoryLabel = 'Agentic AI';
+    } else if (hasTopic(['vision', 'opencv', 'yolo', 'mediapipe', 'image', 'video', 'detection']) || hasText(['vision', 'opencv', 'yolo', 'mediapipe', 'image', 'video', 'detection', 'cnn', 'object-detect'])) {
+      category = 'vision';
+      categoryLabel = 'Computer Vision';
+    } else if (hasTopic(['web', 'react', 'vue', 'nextjs', 'angular', 'fullstack', 'saas', 'frontend', 'backend', 'saas', 'django', 'laravel']) || 
+               hasText(['web', 'react', 'vue', 'nextjs', 'angular', 'fullstack', 'saas', 'frontend', 'backend', 'saas', 'django', 'laravel']) ||
+               ['typescript', 'javascript', 'html', 'css'].includes((repo.language || '').toLowerCase())) {
+      category = 'fullstack';
+      categoryLabel = 'Full-Stack SaaS';
+    }
+
+    const title = repo.name
+      .split(/[-_]+/)
+      .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
+    const sizeKB = repo.size || 0;
+    const size = sizeKB >= 1024 
+      ? `${(sizeKB / 1024).toFixed(1)} MB` 
+      : `${sizeKB} KB`;
+
+    dynamicProjects.push({
+      id: repo.name.toLowerCase(),
+      title,
+      category,
+      categoryLabel,
+      shortDesc: repo.description || 'GitHub public repository.',
+      longDesc: repo.description || 'No description provided.',
+      tech: topics.length > 0 ? topics.map(t => t.toUpperCase()) : [repo.language || 'GitHub Repo'],
+      github: repo.html_url,
+      demo: repo.homepage || undefined,
+      version: '1.0.0',
+      size,
+      stars: repo.stargazers_count || 0
+    });
+  });
+
+  return [...updatedCurated, ...dynamicProjects];
 };
 
 export const useTelemetryStore = create<TelemetryStore>((set, get) => ({
@@ -178,12 +276,27 @@ export const useTelemetryStore = create<TelemetryStore>((set, get) => ({
       const cached = localStorage.getItem('shadowos_telemetry');
       if (cached) {
         const parsed = JSON.parse(cached);
+
+        // Merge stars from cached projects into projectsData
+        const cachedProjects = parsed.projects || [];
+        const mergedProjects = projectsData.map(p => {
+          const cachedProj = cachedProjects.find((cp: any) => cp.id === p.id);
+          return cachedProj ? { ...p, stars: cachedProj.stars ?? p.stars } : p;
+        });
+
+        // Retain dynamic cached projects (those not in projectsData)
+        const cachedDynamicProjects = cachedProjects.filter((cp: any) => !projectsData.some(p => p.id === cp.id));
+        const allMergedProjects = [...mergedProjects, ...cachedDynamicProjects];
+
+        // Merge languages from cached githubData into categorizedSkills
+        const mergedSkills = mergeCategorizedSkills(parsed.githubData?.languages || []);
+
         set({
           githubData: parsed.githubData || DEFAULT_GITHUB,
           leetcodeData: parsed.leetcodeData || DEFAULT_LEETCODE,
           radarSkills: parsed.radarSkills || radarSkillsData,
-          categorizedSkills: parsed.categorizedSkills || categorizedSkills,
-          projects: parsed.projects || projectsData,
+          categorizedSkills: mergedSkills,
+          projects: allMergedProjects,
           lastSynced: parsed.lastSynced || null
         });
       }
@@ -191,10 +304,12 @@ export const useTelemetryStore = create<TelemetryStore>((set, get) => ({
       console.warn('Failed to parse cached telemetry:', e);
     }
 
-    // Trigger initial background sync
+    // Trigger initial background sync on boot if not synced in the last 2 minutes,
+    // or if we don't have any dynamic projects loaded yet
     const last = get().lastSynced;
-    const sixHours = 6 * 60 * 60 * 1000;
-    if (!last || Date.now() - last > sixHours) {
+    const twoMinutes = 2 * 60 * 1000;
+    const hasDynamicProjects = get().projects.length > projectsData.length;
+    if (!last || Date.now() - last > twoMinutes || !hasDynamicProjects) {
       get().sync();
     }
 
@@ -260,59 +375,129 @@ export const useTelemetryStore = create<TelemetryStore>((set, get) => ({
         if (computedLanguages.length > 0) {
           updatedGithub.languages = computedLanguages;
         }
-
-        // Calculate rank
-        let rank = 'C';
-        const totalScore = (updatedGithub.publicRepos * 5) + (starsSum * 10) + updatedGithub.commits;
-        if (totalScore > 300) rank = 'A';
-        else if (totalScore > 150) rank = 'B';
-        updatedGithub.rank = rank;
+      } else if (reposRes.status === 403) {
+        console.warn('GitHub API rate limit exceeded. Using cached repository list.');
       }
 
-      // Fetch GitHub commits/activity
-      const eventsRes = await fetch('https://api.github.com/users/X-ImLucky-X/events');
-      if (eventsRes.ok) {
-        const eventsData = await eventsRes.json();
-        const dailyContributions: Record<string, number> = {};
-        const datesList = [];
+      // Fetch dynamic stats from search API
+      try {
+        const [commitsRes, prsRes, issuesRes] = await Promise.all([
+          fetch('https://api.github.com/search/commits?q=author:X-ImLucky-X'),
+          fetch('https://api.github.com/search/issues?q=author:X-ImLucky-X+type:pr'),
+          fetch('https://api.github.com/search/issues?q=author:X-ImLucky-X+type:issue')
+        ]);
 
-        for (let i = 30; i >= 0; i--) {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
-          const dateStr = d.toISOString().split('T')[0];
-          dailyContributions[dateStr] = 0;
-          datesList.push({
-            fullDate: dateStr,
-            day: String(d.getDate())
-          });
+        if (commitsRes.ok) {
+          const commitsData = await commitsRes.json();
+          updatedGithub.commits = commitsData.total_count || updatedGithub.commits;
         }
+        if (prsRes.ok) {
+          const prsData = await prsRes.json();
+          updatedGithub.prs = prsData.total_count || updatedGithub.prs;
+        }
+        if (issuesRes.ok) {
+          const issuesData = await issuesRes.json();
+          updatedGithub.issues = issuesData.total_count || updatedGithub.issues;
+        }
+      } catch (searchErr) {
+        console.warn('Failed to fetch GitHub stats from search API:', searchErr);
+      }
 
-        let commitsCountThisMonth = 0;
-        eventsData.forEach((evt: any) => {
-          if (evt.created_at) {
-            const dateStr = evt.created_at.split('T')[0];
-            if (dailyContributions[dateStr] !== undefined) {
-              if (evt.type === 'PushEvent' && evt.payload && evt.payload.size) {
-                dailyContributions[dateStr] += evt.payload.size;
-                commitsCountThisMonth += evt.payload.size;
-              } else {
-                dailyContributions[dateStr] += 1;
-                commitsCountThisMonth += 1;
+      // Fetch GitHub contributions calendar (streaks and activity graph)
+      try {
+        const contribsRes = await fetch('https://github-contributions-api.jogruber.de/v4/X-ImLucky-X');
+        if (contribsRes.ok) {
+          const contribsData = await contribsRes.json();
+          const sortedContributions = contribsData.contributions || [];
+          sortedContributions.sort((a: any, b: any) => a.date.localeCompare(b.date));
+
+          let longestStreak = 0;
+          let runningStreak = 0;
+
+          const todayStr = new Date().toISOString().split('T')[0];
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+          sortedContributions.forEach((day: any) => {
+            if (day.date > todayStr) return;
+
+            if (day.count > 0) {
+              runningStreak++;
+              if (runningStreak > longestStreak) {
+                longestStreak = runningStreak;
+              }
+            } else {
+              runningStreak = 0;
+            }
+          });
+
+          let currentStreak = 0;
+          const todayDay = sortedContributions.find((d: any) => d.date === todayStr);
+          const yesterdayDay = sortedContributions.find((d: any) => d.date === yesterdayStr);
+
+          if (todayDay && todayDay.count > 0) {
+            let streak = 0;
+            const todayIdx = sortedContributions.findIndex((d: any) => d.date === todayStr);
+            if (todayIdx !== -1) {
+              for (let i = todayIdx; i >= 0; i--) {
+                if (sortedContributions[i].count > 0) {
+                  streak++;
+                } else {
+                  break;
+                }
               }
             }
+            currentStreak = streak;
+          } else if (yesterdayDay && yesterdayDay.count > 0) {
+            let streak = 0;
+            const yesterdayIdx = sortedContributions.findIndex((d: any) => d.date === yesterdayStr);
+            if (yesterdayIdx !== -1) {
+              for (let i = yesterdayIdx; i >= 0; i--) {
+                if (sortedContributions[i].count > 0) {
+                  streak++;
+                } else {
+                  break;
+                }
+              }
+            }
+            currentStreak = streak;
           }
-        });
 
-        const hasLiveData = Object.values(dailyContributions).some(c => c > 0);
-        if (hasLiveData) {
-          updatedGithub.activity = datesList.map(item => ({
-            day: item.day,
-            count: dailyContributions[item.fullDate]
-          }));
-          updatedGithub.contributions = 125 + commitsCountThisMonth;
-          updatedGithub.commits = 103 + commitsCountThisMonth;
+          updatedGithub.currentStreak = Math.max(1, currentStreak);
+          updatedGithub.longestStreak = Math.max(8, longestStreak);
+
+          // Populate activity graph (last 31 days)
+          let todayIdx = sortedContributions.findIndex((d: any) => d.date === todayStr);
+          if (todayIdx === -1) {
+            todayIdx = sortedContributions.length - 1;
+          }
+
+          const last31Days = sortedContributions.slice(Math.max(0, todayIdx - 30), todayIdx + 1);
+          if (last31Days.length > 0) {
+            updatedGithub.activity = last31Days.map((d: any) => {
+              const parts = d.date.split('-');
+              const dayNum = parseInt(parts[2], 10);
+              return {
+                day: String(dayNum),
+                count: d.count
+              };
+            });
+          }
         }
+      } catch (contribsErr) {
+        console.warn('Failed to fetch GitHub contributions stats:', contribsErr);
       }
+
+      // Compute contributions and rank dynamically
+      updatedGithub.contributions = updatedGithub.commits + updatedGithub.prs + updatedGithub.issues;
+      
+      let rank = 'C';
+      const totalScore = (updatedGithub.publicRepos * 5) + (updatedGithub.stars * 10) + updatedGithub.commits;
+      if (totalScore > 300) rank = 'A';
+      else if (totalScore > 150) rank = 'B';
+      updatedGithub.rank = rank;
+
     } catch (err) {
       console.warn('Failed to sync GitHub telemetry:', err);
     }
