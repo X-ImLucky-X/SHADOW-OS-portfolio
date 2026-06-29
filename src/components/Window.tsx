@@ -205,6 +205,8 @@ export const Window: React.FC<WindowProps> = ({ id, children }) => {
               ? 'bg-[#000000] text-[#00f5a0]'
               : id === 'resume'
               ? 'bg-[#808080] text-black'
+              : id === 'browser'
+              ? 'bg-[#c0c0c0] text-black'
               : 'bg-[#c0c0c0] text-black font-pixel'
           }`}>
             {children}

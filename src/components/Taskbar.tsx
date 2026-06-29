@@ -63,6 +63,7 @@ export const Taskbar: React.FC = () => {
       case 'ai': return 'bg-accent-cyan';
       case 'resume': return 'bg-accent-pink';
       case 'contact': return 'bg-accent-amber';
+      case 'browser': return 'bg-accent-green';
       default: return 'bg-white';
     }
   };

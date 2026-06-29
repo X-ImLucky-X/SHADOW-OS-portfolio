@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Project, projectsData } from '../data/projects';
 import { useTelemetryStore } from '../store/telemetryStore';
 import { useNotificationStore } from '../store/notificationStore';
+import { useWindowStore } from '../store/windowStore';
 import { 
   Github, 
   ExternalLink, 
@@ -286,6 +287,7 @@ const compileSteps = [
 export const ProjectsApp: React.FC = () => {
   const { addNotification } = useNotificationStore();
   const { projects } = useTelemetryStore();
+  const { openWindow, setBrowserUrl } = useWindowStore();
   const [selectedProj, setSelectedProj] = useState<Project>(projects[0] || projectsData[0]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
@@ -578,7 +580,8 @@ export const ProjectsApp: React.FC = () => {
                 {isCompileFinished && (
                   <button
                     onClick={() => {
-                      window.open(compilingProj.github, '_blank');
+                      setBrowserUrl(compilingProj.github);
+                      openWindow('browser');
                       setCompilingProj(null);
                     }}
                     className="px-4 py-1 bg-[#c0c0c0] text-black border-2 border-t-white border-l-white border-b-black border-r-black active:border-t-black active:border-l-black active:border-b-white active:border-r-white text-xs font-bold outline-none cursor-pointer"

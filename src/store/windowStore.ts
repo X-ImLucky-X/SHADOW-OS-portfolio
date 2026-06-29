@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type AppId = 'terminal' | 'projects' | 'about' | 'resume' | 'skills' | 'contact' | 'ai' | 'game';
+export type AppId = 'terminal' | 'projects' | 'about' | 'resume' | 'skills' | 'contact' | 'ai' | 'game' | 'browser';
 
 export interface WindowState {
   id: AppId;
@@ -29,6 +29,8 @@ interface WindowStore {
   updateWindowPosition: (id: AppId, x: number, y: number) => void;
   updateWindowSize: (id: AppId, width: number, height: number) => void;
   cycleWindows: () => void;
+  browserUrl: string;
+  setBrowserUrl: (url: string) => void;
 }
 
 const initialWindows: Record<AppId, WindowState> = {
@@ -143,6 +145,20 @@ const initialWindows: Record<AppId, WindowState> = {
     height: 560,
     minWidth: 720,
     minHeight: 460,
+  },
+  browser: {
+    id: 'browser',
+    title: 'WebNavigator.exe',
+    isOpen: false,
+    isMinimized: false,
+    isMaximized: false,
+    zIndex: 10,
+    x: 100,
+    y: 50,
+    width: 800,
+    height: 550,
+    minWidth: 500,
+    minHeight: 350,
   },
 };
 
@@ -369,4 +385,7 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
     const nextToFocus = sorted[0].id;
     get().focusWindow(nextToFocus);
   },
+
+  browserUrl: 'https://github.com/X-ImLucky-X',
+  setBrowserUrl: (url) => set({ browserUrl: url }),
 }));

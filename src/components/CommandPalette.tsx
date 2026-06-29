@@ -4,7 +4,7 @@ import { useWindowStore } from '../store/windowStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Terminal, AppWindow, FileDown, Mail, Eye, ShieldAlert, Sparkles, Command, User, BarChart2, Gamepad2 } from 'lucide-react';
+import { Terminal, AppWindow, FileDown, Mail, Eye, ShieldAlert, Sparkles, Command, User, BarChart2, Gamepad2, Globe } from 'lucide-react';
 
 interface PaletteOption {
   id: string;
@@ -82,6 +82,13 @@ export const CommandPalette: React.FC = () => {
       subtitle: 'Boot retro 2D neon snake program',
       icon: <Gamepad2 className="w-4 h-4 text-accent-pink" />,
       action: () => openWindow('game'),
+    },
+    {
+      id: 'browser',
+      title: 'Open Web Browser',
+      subtitle: 'Launch retro WebNavigator.exe browser client',
+      icon: <Globe className="w-4 h-4 text-accent-green" />,
+      action: () => openWindow('browser'),
     },
     {
       id: 'matrix',

@@ -21,7 +21,8 @@ import {
   RetroAIIcon,
   RetroResumeIcon,
   RetroContactIcon,
-  RetroGameIcon
+  RetroGameIcon,
+  RetroBrowserIcon
 } from '../components/RetroIcons';
 
 // Apps
@@ -33,6 +34,7 @@ import { SkillsApp } from '../apps/SkillsApp';
 import { ContactApp } from '../apps/ContactApp';
 import { AIApp } from '../apps/AIApp';
 import { GameApp } from '../apps/GameApp';
+import { BrowserApp } from '../apps/BrowserApp';
 
 interface Shortcut {
   id: AppId;
@@ -113,6 +115,12 @@ export const Desktop: React.FC = () => {
       label: 'CyberSnake.exe',
       icon: <RetroGameIcon className="w-8 h-8" />,
       colorClass: 'hover:bg-accent-pink/10 border-accent-pink/20 text-accent-pink',
+    },
+    {
+      id: 'browser',
+      label: 'WebNavigator.exe',
+      icon: <RetroBrowserIcon className="w-8 h-8" />,
+      colorClass: 'hover:bg-accent-green/10 border-accent-green/20 text-accent-green',
     },
   ];
 
@@ -237,6 +245,12 @@ export const Desktop: React.FC = () => {
         {windows.game.isOpen && (
           <Window id="game">
             <GameApp />
+          </Window>
+        )}
+
+        {windows.browser.isOpen && (
+          <Window id="browser">
+            <BrowserApp />
           </Window>
         )}
       </main>

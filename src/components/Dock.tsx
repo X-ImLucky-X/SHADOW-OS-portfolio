@@ -12,7 +12,8 @@ import {
   RetroAIIcon,
   RetroResumeIcon,
   RetroContactIcon,
-  RetroGameIcon
+  RetroGameIcon,
+  RetroBrowserIcon
 } from './RetroIcons';
 
 interface DockItem {
@@ -93,6 +94,14 @@ export const Dock: React.FC = () => {
       bgColor: 'rgba(240, 0, 184, 0.15)',
       borderColor: 'border-accent-pink/30',
       glowColor: 'shadow-[0_0_15px_rgba(240,0,184,0.3)]',
+    },
+    {
+      id: 'browser',
+      label: 'Web Browser',
+      icon: <RetroBrowserIcon className="w-6 h-6" />,
+      bgColor: 'rgba(0, 245, 160, 0.15)',
+      borderColor: 'border-accent-green/30',
+      glowColor: 'shadow-[0_0_15px_rgba(0,245,160,0.3)]',
     },
   ];
 

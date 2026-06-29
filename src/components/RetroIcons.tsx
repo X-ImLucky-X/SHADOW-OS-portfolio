@@ -134,3 +134,14 @@ export const RetroGameIcon: React.FC<RetroIconProps> = ({ className = 'w-6 h-6' 
     <circle cx="18" cy="23" r="1.5" fill="#8c1d3f" />
   </svg>
 );
+
+// 9. WebNavigator.exe - Win95 Globe / Compass style browser icon
+export const RetroBrowserIcon: React.FC<RetroIconProps> = ({ className = 'w-6 h-6' }) => (
+  <svg className={className} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="16" cy="16" r="12" fill="#000080" stroke="#000000" strokeWidth="2" />
+    <ellipse cx="16" cy="16" rx="6" ry="12" stroke="#00ffff" strokeWidth="1.5" />
+    <line x1="4" y1="16" x2="28" y2="16" stroke="#00ffff" strokeWidth="1.5" />
+    <path d="M 6 10 Q 16 14 26 10" stroke="#00ffff" strokeWidth="1" fill="none" />
+    <path d="M 6 22 Q 16 18 26 22" stroke="#00ffff" strokeWidth="1" fill="none" />
+  </svg>
+);
