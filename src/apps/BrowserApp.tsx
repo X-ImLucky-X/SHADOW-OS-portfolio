@@ -7,7 +7,6 @@ import {
   X, 
   RotateCw, 
   Home, 
-  Search, 
   Globe, 
   FileText, 
   ExternalLink,
@@ -27,28 +26,45 @@ export const BrowserApp: React.FC = () => {
   const [history, setHistory] = useState<string[]>([browserUrl]);
   const [historyIdx, setHistoryIdx] = useState(0);
 
-  // Retro GitHub Viewer States
+  // Retro GitHub Repository Viewer States
   const [isGithubRepo, setIsGithubRepo] = useState(false);
   const [repoInfo, setRepoInfo] = useState<any>(null);
   const [readmeContent, setReadmeContent] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'readme' | 'files'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'readme'>('overview');
   const [loadingRepo, setLoadingRepo] = useState(false);
+
+  // Retro GitHub Profile Viewer States
+  const [isGithubProfile, setIsGithubProfile] = useState(false);
+  const [profileInfo, setProfileInfo] = useState<any>(null);
+  const [profileRepos, setProfileRepos] = useState<any[]>([]);
+  const [loadingProfile, setLoadingProfile] = useState(false);
 
   // Sync external changes to browserUrl into history
   useEffect(() => {
     setInputUrl(browserUrl);
     
-    // Parse GitHub repo match
-    const match = browserUrl.match(/github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)/i);
-    if (match) {
+    const cleanUrl = browserUrl.replace(/\/$/, ''); // Remove trailing slash
+    const matchRepo = cleanUrl.match(/github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/i);
+    const matchProfile = cleanUrl.match(/github\.com\/([a-zA-Z0-9_.-]+)$/i);
+
+    if (matchRepo) {
       setIsGithubRepo(true);
-      const owner = match[1];
-      const repo = match[2];
+      setIsGithubProfile(false);
+      const owner = matchRepo[1];
+      const repo = matchRepo[2];
       fetchRepoDetails(owner, repo);
+    } else if (matchProfile && matchProfile[1].toLowerCase() !== 'www') {
+      setIsGithubRepo(false);
+      setIsGithubProfile(true);
+      const username = matchProfile[1];
+      fetchProfileDetails(username);
     } else {
       setIsGithubRepo(false);
+      setIsGithubProfile(false);
       setRepoInfo(null);
       setReadmeContent('');
+      setProfileInfo(null);
+      setProfileRepos([]);
     }
 
     if (history[historyIdx] !== browserUrl) {
@@ -122,6 +138,36 @@ export const BrowserApp: React.FC = () => {
       }
     }).finally(() => {
       setLoadingRepo(false);
+    });
+  };
+
+  const fetchProfileDetails = (username: string) => {
+    setLoadingProfile(true);
+    Promise.all([
+      fetch(`https://api.github.com/users/${username}`).then(r => r.ok ? r.json() : null),
+      fetch(`https://api.github.com/users/${username}/repos?per_page=100&sort=updated`).then(r => r.ok ? r.json() : [])
+    ]).then(([userData, reposData]) => {
+      if (userData) {
+        setProfileInfo({
+          login: userData.login,
+          name: userData.name || userData.login,
+          avatarUrl: userData.avatar_url,
+          bio: userData.bio || 'No bio available.',
+          location: userData.location || 'Unknown',
+          company: userData.company || 'None',
+          publicRepos: userData.public_repos,
+          followers: userData.followers,
+          following: userData.following,
+          htmlUrl: userData.html_url
+        });
+      }
+      if (Array.isArray(reposData)) {
+        setProfileRepos(reposData.filter((r: any) => !r.fork));
+      }
+    }).catch(err => {
+      console.error('Failed to fetch profile details:', err);
+    }).finally(() => {
+      setLoadingProfile(false);
     });
   };
 
@@ -226,7 +272,7 @@ export const BrowserApp: React.FC = () => {
       {/* 3. Browser Viewport Area */}
       <div className="flex-1 w-full bg-[#3a6ea5] p-3 overflow-hidden flex flex-col relative">
         {isGithubRepo ? (
-          /* Retro GitHub Viewer */
+          /* Retro GitHub Repository Viewer */
           <div className="flex-1 bg-[#c0c0c0] border-2 border-t-white border-l-white border-b-black border-r-black p-1 flex flex-col overflow-hidden shadow-2xl">
             {/* Repo Header */}
             <div className="bg-[#000080] text-white p-2 flex justify-between items-center select-none font-pixel uppercase tracking-wide">
@@ -244,7 +290,7 @@ export const BrowserApp: React.FC = () => {
                     rel="noreferrer"
                     className="flex items-center gap-1 px-1.5 py-0.5 bg-[#c0c0c0] border border-t-white border-l-white border-b-black border-r-black hover:bg-[#dfdfdf]"
                   >
-                    <ExternalLink className="w-3 h-3" /> Live Demo
+                    <ExternalLink className="w-3.5 h-3.5" /> Live Demo
                   </a>
                 )}
                 <a 
@@ -253,7 +299,7 @@ export const BrowserApp: React.FC = () => {
                   rel="noreferrer"
                   className="flex items-center gap-1 px-1.5 py-0.5 bg-[#c0c0c0] border border-t-white border-l-white border-b-black border-r-black hover:bg-[#dfdfdf]"
                 >
-                  <Globe className="w-3 h-3" /> View On GitHub
+                  <Globe className="w-3.5 h-3.5" /> View On GitHub
                 </a>
               </div>
             </div>
@@ -356,6 +402,113 @@ export const BrowserApp: React.FC = () => {
               )}
             </div>
           </div>
+        ) : isGithubProfile ? (
+          /* Retro GitHub Profile Viewer */
+          <div className="flex-1 bg-[#c0c0c0] border-2 border-t-white border-l-white border-b-black border-r-black p-1 flex flex-col overflow-hidden shadow-2xl">
+            {/* Profile Header */}
+            <div className="bg-[#000080] text-white p-2 flex justify-between items-center select-none font-pixel uppercase tracking-wide">
+              <div className="flex items-center gap-2">
+                <span>👤</span>
+                <span className="text-sm font-bold truncate">
+                  {profileInfo ? `${profileInfo.name}'s Profile` : 'Loading Profile...'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-black">
+                <a 
+                  href={browserUrl} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="flex items-center gap-1 px-1.5 py-0.5 bg-[#c0c0c0] border border-t-white border-l-white border-b-black border-r-black hover:bg-[#dfdfdf]"
+                >
+                  <Globe className="w-3.5 h-3.5" /> View On GitHub
+                </a>
+              </div>
+            </div>
+
+            {/* Profile Viewport */}
+            <div className="flex-1 bg-white border-2 border-t-[#808080] border-l-[#808080] border-b-white border-r-white p-3 overflow-y-auto flex flex-col gap-4 text-black">
+              {loadingProfile ? (
+                <div className="w-full h-full flex flex-col items-center justify-center font-pixel text-black gap-2">
+                  <div className="w-8 h-8 border-4 border-t-[#000080] border-[#808080] rounded-full animate-spin" />
+                  <span>Fetching profile nodes...</span>
+                </div>
+              ) : (
+                <>
+                  {/* Top user summary details */}
+                  <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start border-b border-[#808080] pb-4">
+                    {profileInfo?.avatarUrl && (
+                      <img 
+                        src={profileInfo.avatarUrl} 
+                        alt="Avatar" 
+                        className="w-20 h-20 border-2 border-[#808080] rounded-none shadow-md"
+                      />
+                    )}
+                    <div className="flex-1 text-center sm:text-left">
+                      <h2 className="text-xl font-bold font-pixel text-[#000080]">{profileInfo?.name}</h2>
+                      <p className="text-xs font-mono text-[#505050]">@{profileInfo?.login}</p>
+                      <p className="text-xs font-bold mt-1 text-[#333] italic">{profileInfo?.bio}</p>
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 justify-center sm:justify-start text-[11px] font-bold text-gray-600">
+                        {profileInfo?.location && <span>📍 {profileInfo.location}</span>}
+                        {profileInfo?.company && profileInfo.company !== 'None' && <span>💼 {profileInfo.company}</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Grid Stats */}
+                  <div className="grid grid-cols-3 gap-2 bg-[#f0f0f0] border border-[#808080] p-2 text-center text-xs font-bold">
+                    <div className="border-r border-gray-300">
+                      <div className="text-[#000080] text-lg font-pixel">{profileInfo?.publicRepos || 0}</div>
+                      <div className="text-[10px] text-gray-600">REPOSITORIES</div>
+                    </div>
+                    <div className="border-r border-gray-300">
+                      <div className="text-[#000080] text-lg font-pixel">{profileInfo?.followers || 0}</div>
+                      <div className="text-[10px] text-gray-600">FOLLOWERS</div>
+                    </div>
+                    <div>
+                      <div className="text-[#000080] text-lg font-pixel">{profileInfo?.following || 0}</div>
+                      <div className="text-[10px] text-gray-600">FOLLOWING</div>
+                    </div>
+                  </div>
+
+                  {/* Repos list */}
+                  <div>
+                    <h3 className="text-xs font-bold bg-[#808080] text-white px-2 py-0.5 mb-2 w-max border border-t-white border-l-white border-b-black border-r-black">
+                      Public Repositories
+                    </h3>
+                    <div className="flex flex-col border border-[#808080] bg-white divide-y divide-gray-200 text-xs">
+                      {profileRepos.map((repo: any) => (
+                        <div 
+                          key={repo.id}
+                          onClick={() => handleNavigate(repo.html_url)}
+                          className="p-2.5 hover:bg-[#f0f0f0] cursor-pointer flex justify-between items-center transition-colors"
+                        >
+                          <div className="flex flex-col gap-1 pr-4 min-w-0">
+                            <span className="font-bold text-blue-900 flex items-center gap-1 truncate">
+                              <span>📁</span> {repo.name}
+                            </span>
+                            <span className="text-[10px] text-gray-600 truncate">{repo.description || 'No description provided.'}</span>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0 text-[10px] font-bold text-gray-500">
+                            {repo.language && (
+                              <span className="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded-sm">
+                                {repo.language}
+                              </span>
+                            )}
+                            <span className="flex items-center gap-0.5">
+                              ⭐ {repo.stargazers_count}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                      {profileRepos.length === 0 && (
+                        <div className="p-4 text-center text-gray-500 italic">No repositories found.</div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         ) : (
           /* Normal web URL Viewport using iframe */
           <div className="flex-1 w-full flex flex-col bg-white border-2 border-t-[#808080] border-l-[#808080] border-b-white border-r-white relative">
@@ -376,7 +529,7 @@ export const BrowserApp: React.FC = () => {
                 rel="noreferrer"
                 className="px-2 py-0.5 bg-[#c0c0c0] font-bold border border-t-white border-l-white border-b-black border-r-black hover:bg-[#dfdfdf] text-black shrink-0 text-[10px] uppercase flex items-center gap-1"
               >
-                Open in tab <ExternalLink className="w-3 h-3" />
+                Open in tab <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
           </div>
