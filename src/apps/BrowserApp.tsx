@@ -15,7 +15,8 @@ import {
   Star,
   GitBranch,
   AlertCircle,
-  Eye
+  Eye,
+  Search
 } from 'lucide-react';
 
 export const BrowserApp: React.FC = () => {
@@ -36,7 +37,7 @@ export const BrowserApp: React.FC = () => {
   const [htmlContent, setHtmlContent] = useState<string>('');
   const [loadingHtml, setLoadingHtml] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [useWebProxy, setUseWebProxy] = useState(false);
+  const [showGoogleSearch, setShowGoogleSearch] = useState(false);
 
   // Retro GitHub Viewer States
   const [isGithubUrl, setIsGithubUrl] = useState(false);
@@ -124,7 +125,7 @@ export const BrowserApp: React.FC = () => {
     setLoadingHtml(true);
     setErrorMsg(null);
     setHtmlContent('');
-    setUseWebProxy(false);
+    setShowGoogleSearch(false);
 
     // If Google, use the frame-friendly Google page directly
     if (url.includes('google.com')) {
@@ -151,15 +152,23 @@ export const BrowserApp: React.FC = () => {
 
     // Fetch via raw CORS proxy with failover rotation
     const fetchWithFailover = async (targetUrl: string): Promise<string> => {
-      // 1. Try AllOrigins RAW
+      // 1. Try CorsProxy.io (Fast, browser-friendly prefix)
+      try {
+        const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+        if (res.ok) return await res.text();
+      } catch (e) {
+        console.warn('Proxy 1 (CorsProxy.io) failed, trying AllOrigins RAW...', e);
+      }
+
+      // 2. Try AllOrigins RAW
       try {
         const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
         if (res.ok) return await res.text();
       } catch (e) {
-        console.warn('Primary proxy failed, trying AllOrigins JSON...', e);
+        console.warn('Proxy 2 (AllOrigins RAW) failed, trying AllOrigins JSON...', e);
       }
 
-      // 2. Try AllOrigins JSON API (returns raw html inside contents)
+      // 3. Try AllOrigins JSON API (extracts contents from JSON response)
       try {
         const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
         if (res.ok) {
@@ -167,12 +176,12 @@ export const BrowserApp: React.FC = () => {
           if (data && data.contents) return data.contents;
         }
       } catch (e) {
-        console.warn('Secondary proxy failed, trying ThingProxy...', e);
+        console.warn('Proxy 3 (AllOrigins JSON) failed, trying Codetabs...', e);
       }
 
-      // 3. Try ThingProxy
+      // 4. Try Codetabs Proxy
       try {
-        const res = await fetch(`https://thingproxy.freeboard.io/fetch/${targetUrl}`);
+        const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
         if (res.ok) return await res.text();
       } catch (e) {
         console.error('All proxies failed.', e);
@@ -486,16 +495,26 @@ export const BrowserApp: React.FC = () => {
         </div>
         
         <div className="flex gap-2 items-center">
+          {/* Native Iframe Search Engine Toggle */}
           <button 
-            onClick={() => setUseWebProxy(!useWebProxy)}
+            onClick={() => {
+              if (showGoogleSearch) {
+                setShowGoogleSearch(false);
+                loadLivePage(browserUrl);
+              } else {
+                setShowGoogleSearch(true);
+                setErrorMsg(null);
+                setHtmlContent('');
+              }
+            }}
             className={`px-2 py-0.5 border border-[#808080] font-pixel text-[10px] uppercase flex items-center gap-1 cursor-pointer outline-none ${
-              useWebProxy ? 'bg-[#000080] text-white' : 'bg-[#dfdfdf] hover:bg-gray-100'
+              showGoogleSearch ? 'bg-[#000080] text-white' : 'bg-[#dfdfdf] hover:bg-gray-100'
             }`}
           >
-            🌐 Proxy Mode: {useWebProxy ? 'ON' : 'OFF'}
+            <Search className="w-3 h-3" /> Search Engine: {showGoogleSearch ? 'ON' : 'OFF'}
           </button>
 
-          {isGithubUrl && (
+          {isGithubUrl && !showGoogleSearch && (
             <button 
               onClick={() => setViewMode(viewMode === 'live' ? 'retro' : 'live')}
               className="px-2 py-0.5 bg-[#dfdfdf] border border-[#808080] font-pixel text-[10px] uppercase flex items-center gap-1 cursor-pointer outline-none hover:bg-gray-100"
@@ -567,25 +586,28 @@ export const BrowserApp: React.FC = () => {
       {/* 3. Browser Viewport Area */}
       <div className="flex-1 w-full bg-[#3a6ea5] p-3 overflow-hidden flex flex-col relative">
         
-        {useWebProxy ? (
-          /* Embed unblocked CroxyProxy inside the iframe if direct proxy failover occurs */
+        {showGoogleSearch ? (
+          /* Render unblocked Google Search client natively in the iframe */
           <div className="flex-1 w-full flex flex-col bg-white border-2 border-t-[#808080] border-l-[#808080] border-b-white border-r-white overflow-hidden relative">
             <iframe 
-              src="https://www.croxyproxy.com/" 
-              title="Unblocked Proxy Viewport" 
+              src="https://www.google.com/search?igu=1" 
+              title="Google Search Viewport" 
               className="w-full flex-1 border-none"
             />
             {/* Warning info bar */}
             <div className="bg-[#ffffd0] border-t border-[#808080] p-1.5 flex justify-between items-center text-xs shrink-0 select-none z-40">
               <span className="flex items-center gap-1.5 text-yellow-900 font-bold">
                 <AlertCircle className="w-4 h-4 text-yellow-700" />
-                Unblocked Web Proxy Mode active. You can browse all sites unblocked inside this pane.
+                Google Search Engine active. Search and browse unblocked inside this pane.
               </span>
               <button 
-                onClick={() => setUseWebProxy(false)}
+                onClick={() => {
+                  setShowGoogleSearch(false);
+                  loadLivePage(browserUrl);
+                }}
                 className="px-2 py-0.5 bg-[#c0c0c0] font-bold border border-t-white border-l-white border-b-black border-r-black hover:bg-gray-100 text-black text-[10px] uppercase cursor-pointer"
               >
-                Exit Proxy Mode
+                Exit Search
               </button>
             </div>
           </div>
@@ -622,7 +644,10 @@ export const BrowserApp: React.FC = () => {
                 <div className="text-sm font-bold max-w-sm">{errorMsg}</div>
                 <div className="flex gap-2">
                   <button 
-                    onClick={() => setUseWebProxy(true)}
+                    onClick={() => {
+                      // Open CroxyProxy in a new browser tab where it won't be blocked by CSP
+                      window.open(`https://www.croxyproxy.com/_pl/index.php?q=${encodeURIComponent(browserUrl)}`, '_blank');
+                    }}
                     className="px-4 py-1 bg-green-700 text-white font-bold border-2 border-t-white border-l-white border-b-black border-r-black active:border-t-black active:border-l-black active:border-b-white active:border-r-white text-xs cursor-pointer"
                   >
                     Load via Web Proxy
@@ -660,7 +685,9 @@ export const BrowserApp: React.FC = () => {
               </span>
               <div className="flex gap-2">
                 <button 
-                  onClick={() => setUseWebProxy(true)}
+                  onClick={() => {
+                    window.open(`https://www.croxyproxy.com/_pl/index.php?q=${encodeURIComponent(browserUrl)}`, '_blank');
+                  }}
                   className="px-2 py-0.5 bg-[#c0c0c0] border border-t-white border-l-white border-b-black border-r-black hover:bg-gray-100 text-black text-[10px] uppercase font-bold cursor-pointer"
                 >
                   Proxy Mode
