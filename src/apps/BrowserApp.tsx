@@ -31,7 +31,11 @@ export const BrowserApp: React.FC = () => {
   const [canGoForward, setCanGoForward] = useState(false);
 
   // View Mode: 'live' (real proxy browser) or 'retro' (our offline custom interface for GitHub)
-  const [viewMode, setViewMode] = useState<'live' | 'retro'>('live');
+  const [viewMode, setViewMode] = useState<'live' | 'retro'>(() => {
+    const cleanUrl = browserUrl.replace(/\/$/, '');
+    const isGithub = cleanUrl.includes('github.com') && !cleanUrl.includes('github.com/www');
+    return isGithub ? 'retro' : 'live';
+  });
 
   // Proxy States
   const [htmlContent, setHtmlContent] = useState<string>('');
@@ -305,7 +309,7 @@ export const BrowserApp: React.FC = () => {
       }, true);
 
     } catch (err) {
-      console.warn('Sandbox or cross-origin blocked iframe click interception.', err);
+      console.debug('Sandbox or cross-origin blocked iframe click interception.', err);
     }
   };
 
@@ -521,15 +525,6 @@ export const BrowserApp: React.FC = () => {
             <Search className="w-3 h-3" /> Search Engine: {showGoogleSearch ? 'ON' : 'OFF'}
           </button>
 
-          {isGithubUrl && !showGoogleSearch && (
-            <button 
-              onClick={() => setViewMode(viewMode === 'live' ? 'retro' : 'live')}
-              className="px-2 py-0.5 bg-[#dfdfdf] border border-[#808080] font-pixel text-[10px] uppercase flex items-center gap-1 cursor-pointer outline-none hover:bg-gray-100"
-            >
-              {viewMode === 'live' ? <Code className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              {viewMode === 'live' ? 'Switch to Retro View' : 'Switch to Live View'}
-            </button>
-          )}
         </div>
       </div>
 
