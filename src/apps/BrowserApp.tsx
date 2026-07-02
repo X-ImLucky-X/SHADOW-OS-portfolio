@@ -55,6 +55,11 @@ export const BrowserApp: React.FC = () => {
   const [profileRepos, setProfileRepos] = useState<any[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(false);
 
+  // Dynamic GitHub Contents States
+  const [repoContents, setRepoContents] = useState<any[]>([]);
+  const [currentPath, setCurrentPath] = useState<string>('');
+  const [loadingContents, setLoadingContents] = useState(false);
+
   // Navigation controller
   const handleNavigate = (url: string) => {
     let targetUrl = url.trim();
@@ -86,7 +91,9 @@ export const BrowserApp: React.FC = () => {
       setIsGithubProfile(false);
       const owner = matchRepo[1];
       const repo = matchRepo[2];
+      setCurrentPath('');
       fetchRepoDetails(owner, repo);
+      fetchRepoContents(owner, repo, '');
     } else if (matchProfile && matchProfile[1].toLowerCase() !== 'www') {
       isGithub = true;
       setIsGithubUrl(true);
@@ -378,6 +385,77 @@ export const BrowserApp: React.FC = () => {
     }).finally(() => {
       setLoadingRepo(false);
     });
+  };
+
+  const fetchRepoContents = (owner: string, repo: string, path: string) => {
+    setLoadingContents(true);
+
+    const getMockContents = (lang?: string) => {
+      const base = [
+        { name: 'README.md', path: 'README.md', type: 'file', size: 1024, html_url: `https://github.com/${owner}/${repo}/blob/main/README.md` },
+        { name: 'package.json', path: 'package.json', type: 'file', size: 1420, html_url: `https://github.com/${owner}/${repo}/blob/main/package.json` }
+      ];
+      if (lang?.toLowerCase() === 'typescript' || lang?.toLowerCase() === 'javascript') {
+        return [
+          { name: 'src', path: 'src', type: 'dir', size: 0, html_url: `https://github.com/${owner}/${repo}/tree/main/src` },
+          { name: 'public', path: 'public', type: 'dir', size: 0, html_url: `https://github.com/${owner}/${repo}/tree/main/public` },
+          ...base
+        ];
+      }
+      return [
+        { name: 'src', path: 'src', type: 'dir', size: 0, html_url: `https://github.com/${owner}/${repo}/tree/main/src` },
+        ...base
+      ];
+    };
+
+    fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (Array.isArray(data)) {
+          const sorted = [...data].sort((a, b) => {
+            if (a.type === 'dir' && b.type !== 'dir') return -1;
+            if (a.type !== 'dir' && b.type === 'dir') return 1;
+            return a.name.localeCompare(b.name);
+          });
+          setRepoContents(sorted);
+        } else {
+          setRepoContents(getMockContents(repoInfo?.language));
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch contents:', err);
+        setRepoContents(getMockContents(repoInfo?.language));
+      })
+      .finally(() => {
+        setLoadingContents(false);
+      });
+  };
+
+  const handleFolderClick = (item: any) => {
+    if (item.type === 'dir') {
+      const newPath = currentPath ? `${currentPath}/${item.name}` : item.name;
+      setCurrentPath(newPath);
+      const cleanUrl = browserUrl.replace(/\/$/, '');
+      const matchRepo = cleanUrl.match(/github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/i);
+      if (matchRepo) {
+        fetchRepoContents(matchRepo[1], matchRepo[2], newPath);
+      }
+    } else {
+      window.open(item.html_url || `https://github.com/${repoInfo?.owner}/${repoInfo?.title}/blob/main/${item.path}`, '_blank');
+    }
+  };
+
+  const handleGoUp = () => {
+    if (!currentPath) return;
+    const parts = currentPath.split('/');
+    parts.pop();
+    const newPath = parts.join('/');
+    setCurrentPath(newPath);
+    const cleanUrl = browserUrl.replace(/\/$/, '');
+    const matchRepo = cleanUrl.match(/github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/i);
+    if (matchRepo) {
+      fetchRepoContents(matchRepo[1], matchRepo[2], newPath);
+    }
   };
 
   const fetchProfileDetails = (username: string) => {
@@ -800,32 +878,49 @@ export const BrowserApp: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Simulated Directories list */}
+                  {/* Dynamic Repository File Tree */}
                   <div>
-                    <h3 className="text-xs font-bold bg-[#808080] text-white px-2 py-0.5 mb-2 w-max border border-t-white border-l-white border-b-black border-r-black">
-                      Simulated File Tree
-                    </h3>
-                    <div className="flex flex-col border border-[#808080] bg-white divide-y divide-gray-100 text-xs">
-                      <div className="flex items-center gap-2 p-1.5 font-bold text-blue-900 bg-[#f9f9f9]">
-                        <Folder className="w-4 h-4 text-yellow-600 fill-yellow-600" />
-                        <span>src/</span>
-                      </div>
-                      <div className="flex items-center gap-2 p-1.5 font-bold text-blue-900 bg-[#f9f9f9]">
-                        <Folder className="w-4 h-4 text-yellow-600 fill-yellow-600" />
-                        <span>public/</span>
-                      </div>
-                      <div className="flex items-center gap-2 p-1.5 font-bold text-blue-900 bg-[#f9f9f9]">
-                        <Folder className="w-4 h-4 text-yellow-600 fill-yellow-600" />
-                        <span>assets/</span>
-                      </div>
-                      <div className="flex items-center gap-2 p-1.5 text-black">
-                        <FileText className="w-4 h-4 text-gray-500" />
-                        <span>package.json</span>
-                      </div>
-                      <div className="flex items-center gap-2 p-1.5 text-black">
-                        <FileText className="w-4 h-4 text-gray-500" />
-                        <span>README.md</span>
-                      </div>
+                    <div className="flex justify-between items-center bg-[#808080] text-white px-2 py-0.5 mb-2 border border-t-white border-l-white border-b-black border-r-black select-none">
+                      <span className="text-xs font-bold font-mono truncate">
+                        File Explorer: /{currentPath}
+                      </span>
+                      {currentPath && (
+                        <button 
+                          onClick={handleGoUp}
+                          className="px-1.5 py-0.2 bg-[#c0c0c0] text-black border border-t-white border-l-white border-b-black border-r-black active:border-t-black active:border-l-black active:border-b-white active:border-r-white text-[9px] font-pixel cursor-pointer outline-none hover:bg-gray-100"
+                        >
+                          Up 🗀
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex flex-col border border-[#808080] bg-white divide-y divide-gray-100 text-xs max-h-64 overflow-y-auto">
+                      {loadingContents ? (
+                        <div className="p-3 text-center text-gray-500 italic font-mono">Reading remote directory...</div>
+                      ) : repoContents.length > 0 ? (
+                        repoContents.map((item) => (
+                          <div 
+                            key={item.path}
+                            onClick={() => handleFolderClick(item)}
+                            className="flex items-center justify-between p-1.5 hover:bg-[#f0f0f0] cursor-pointer transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              {item.type === 'dir' ? (
+                                <Folder className="w-4 h-4 text-yellow-600 fill-yellow-600 shrink-0" />
+                              ) : (
+                                <FileText className="w-4 h-4 text-gray-500 shrink-0" />
+                              )}
+                              <span className={`font-mono truncate ${item.type === 'dir' ? 'font-bold text-blue-900' : 'text-black'}`}>
+                                {item.name}{item.type === 'dir' ? '/' : ''}
+                              </span>
+                            </div>
+                            <span className="text-[9px] text-gray-400 font-mono shrink-0 pl-2">
+                              {item.type === 'dir' ? 'dir' : item.size ? `${(item.size / 1024).toFixed(1)} KB` : 'file'}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 text-center text-gray-500 italic font-mono">No files found.</div>
+                      )}
                     </div>
                   </div>
                 </div>
