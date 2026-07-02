@@ -74,7 +74,9 @@ export const BrowserApp: React.FC = () => {
     const matchRepo = cleanUrl.match(/github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/i);
     const matchProfile = cleanUrl.match(/github\.com\/([a-zA-Z0-9_.-]+)$/i);
 
+    let isGithub = false;
     if (matchRepo) {
+      isGithub = true;
       setIsGithubUrl(true);
       setIsGithubRepo(true);
       setIsGithubProfile(false);
@@ -82,6 +84,7 @@ export const BrowserApp: React.FC = () => {
       const repo = matchRepo[2];
       fetchRepoDetails(owner, repo);
     } else if (matchProfile && matchProfile[1].toLowerCase() !== 'www') {
+      isGithub = true;
       setIsGithubUrl(true);
       setIsGithubRepo(false);
       setIsGithubProfile(true);
@@ -92,6 +95,10 @@ export const BrowserApp: React.FC = () => {
       setIsGithubRepo(false);
       setIsGithubProfile(false);
     }
+
+    // Default to 'retro' mode for GitHub links to bypass CORS blocks, and 'live' for other sites
+    const defaultMode = isGithub ? 'retro' : 'live';
+    setViewMode(defaultMode);
 
     // Sync history refs
     const currentHist = historyRef.current;
@@ -108,7 +115,7 @@ export const BrowserApp: React.FC = () => {
     }
 
     // Load actual website via CORS/HTML proxy if live view is selected
-    if (viewMode === 'live') {
+    if (defaultMode === 'live') {
       loadLivePage(browserUrl);
     }
   }, [browserUrl]);
@@ -152,9 +159,9 @@ export const BrowserApp: React.FC = () => {
 
     // Fetch via raw CORS proxy with failover rotation
     const fetchWithFailover = async (targetUrl: string): Promise<string> => {
-      // 1. Try CorsProxy.io (Fast, browser-friendly prefix)
+      // 1. Try CorsProxy.io (Fast, browser-friendly prefix, expects unencoded target)
       try {
-        const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+        const res = await fetch(`https://corsproxy.io/?${targetUrl}`);
         if (res.ok) return await res.text();
       } catch (e) {
         console.warn('Proxy 1 (CorsProxy.io) failed, trying AllOrigins RAW...', e);
