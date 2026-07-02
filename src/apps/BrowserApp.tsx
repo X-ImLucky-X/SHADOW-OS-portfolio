@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useWindowStore } from '../store/windowStore';
 import { useTelemetryStore } from '../store/telemetryStore';
 import { 
@@ -23,9 +23,11 @@ export const BrowserApp: React.FC = () => {
   const { projects } = useTelemetryStore();
   const [inputUrl, setInputUrl] = useState(browserUrl);
   
-  // Browser History
-  const [history, setHistory] = useState<string[]>([]);
-  const [historyIdx, setHistoryIdx] = useState(-1);
+  // Navigation History using refs to prevent stale closures and loops
+  const historyRef = useRef<string[]>([browserUrl]);
+  const historyIdxRef = useRef<number>(0);
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [canGoForward, setCanGoForward] = useState(false);
 
   // View Mode: 'live' (real proxy browser) or 'retro' (our offline custom interface for GitHub)
   const [viewMode, setViewMode] = useState<'live' | 'retro'>('live');
@@ -57,6 +59,11 @@ export const BrowserApp: React.FC = () => {
     setBrowserUrl(targetUrl);
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleNavigate(inputUrl);
+  };
+
   // Sync external changes to browserUrl into history
   useEffect(() => {
     setInputUrl(browserUrl);
@@ -85,12 +92,18 @@ export const BrowserApp: React.FC = () => {
       setIsGithubProfile(false);
     }
 
-    // Update history stack
-    if (historyIdx === -1 || history[historyIdx] !== browserUrl) {
-      const newHistory = history.slice(0, historyIdx + 1);
-      const updatedHistory = [...newHistory, browserUrl];
-      setHistory(updatedHistory);
-      setHistoryIdx(updatedHistory.length - 1);
+    // Sync history refs
+    const currentHist = historyRef.current;
+    const currentIdx = historyIdxRef.current;
+
+    if (currentIdx === -1 || currentHist[currentIdx] !== browserUrl) {
+      const newHistory = currentHist.slice(0, currentIdx + 1);
+      const updated = [...newHistory, browserUrl];
+      historyRef.current = updated;
+      historyIdxRef.current = updated.length - 1;
+      
+      setCanGoBack(updated.length > 1 && historyIdxRef.current > 0);
+      setCanGoForward(false);
     }
 
     // Load actual website via CORS/HTML proxy if live view is selected
@@ -136,12 +149,39 @@ export const BrowserApp: React.FC = () => {
       return;
     }
 
-    // Fetch via raw CORS proxy
-    fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`)
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP status ${res.status}`);
-        return res.text();
-      })
+    // Fetch via raw CORS proxy with failover rotation
+    const fetchWithFailover = async (targetUrl: string): Promise<string> => {
+      // 1. Try AllOrigins RAW
+      try {
+        const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
+        if (res.ok) return await res.text();
+      } catch (e) {
+        console.warn('Primary proxy failed, trying AllOrigins JSON...', e);
+      }
+
+      // 2. Try AllOrigins JSON API (returns raw html inside contents)
+      try {
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.contents) return data.contents;
+        }
+      } catch (e) {
+        console.warn('Secondary proxy failed, trying ThingProxy...', e);
+      }
+
+      // 3. Try ThingProxy
+      try {
+        const res = await fetch(`https://thingproxy.freeboard.io/fetch/${targetUrl}`);
+        if (res.ok) return await res.text();
+      } catch (e) {
+        console.error('All proxies failed.', e);
+      }
+
+      throw new Error('All failover proxies timed out or returned errors.');
+    };
+
+    fetchWithFailover(url)
       .then(htmlText => {
         const rewritten = rewriteHtml(htmlText, url);
         setHtmlContent(rewritten);
@@ -406,18 +446,25 @@ export const BrowserApp: React.FC = () => {
   };
 
   const handleBack = () => {
-    if (historyIdx > 0) {
-      const prevIdx = historyIdx - 1;
-      setHistoryIdx(prevIdx);
-      setBrowserUrl(history[prevIdx]);
+    const currentIdx = historyIdxRef.current;
+    if (currentIdx > 0) {
+      const prevIdx = currentIdx - 1;
+      historyIdxRef.current = prevIdx;
+      setBrowserUrl(historyRef.current[prevIdx]);
+      setCanGoBack(prevIdx > 0);
+      setCanGoForward(true);
     }
   };
 
   const handleForward = () => {
-    if (historyIdx < history.length - 1) {
-      const nextIdx = historyIdx + 1;
-      setHistoryIdx(nextIdx);
-      setBrowserUrl(history[nextIdx]);
+    const currentIdx = historyIdxRef.current;
+    const currentHist = historyRef.current;
+    if (currentIdx < currentHist.length - 1) {
+      const nextIdx = currentIdx + 1;
+      historyIdxRef.current = nextIdx;
+      setBrowserUrl(currentHist[nextIdx]);
+      setCanGoBack(true);
+      setCanGoForward(nextIdx < currentHist.length - 1);
     }
   };
 
@@ -438,23 +485,33 @@ export const BrowserApp: React.FC = () => {
           <span className="cursor-pointer hover:bg-[#000080] hover:text-white px-1">Help</span>
         </div>
         
-        {/* Toggle Mode button for GitHub links */}
-        {isGithubUrl && (
+        <div className="flex gap-2 items-center">
           <button 
-            onClick={() => setViewMode(viewMode === 'live' ? 'retro' : 'live')}
-            className="px-2 py-0.5 bg-[#dfdfdf] border border-[#808080] font-pixel text-[10px] uppercase flex items-center gap-1 cursor-pointer outline-none hover:bg-gray-100"
+            onClick={() => setUseWebProxy(!useWebProxy)}
+            className={`px-2 py-0.5 border border-[#808080] font-pixel text-[10px] uppercase flex items-center gap-1 cursor-pointer outline-none ${
+              useWebProxy ? 'bg-[#000080] text-white' : 'bg-[#dfdfdf] hover:bg-gray-100'
+            }`}
           >
-            {viewMode === 'live' ? <Code className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            {viewMode === 'live' ? 'Switch to Retro View' : 'Switch to Live View'}
+            🌐 Proxy Mode: {useWebProxy ? 'ON' : 'OFF'}
           </button>
-        )}
+
+          {isGithubUrl && (
+            <button 
+              onClick={() => setViewMode(viewMode === 'live' ? 'retro' : 'live')}
+              className="px-2 py-0.5 bg-[#dfdfdf] border border-[#808080] font-pixel text-[10px] uppercase flex items-center gap-1 cursor-pointer outline-none hover:bg-gray-100"
+            >
+              {viewMode === 'live' ? <Code className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              {viewMode === 'live' ? 'Switch to Retro View' : 'Switch to Live View'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 2. Navigation Toolbar */}
       <div className="flex items-center gap-1 p-1 border-b border-[#808080] bg-[#c0c0c0] shrink-0">
         <button 
           onClick={handleBack}
-          disabled={historyIdx <= 0}
+          disabled={!canGoBack}
           className="flex flex-col items-center p-1 border border-transparent disabled:opacity-40 hover:border-t-white hover:border-l-white hover:border-b-black hover:border-r-black active:border-t-black active:border-l-black active:border-b-white active:border-r-white outline-none cursor-pointer"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -462,7 +519,7 @@ export const BrowserApp: React.FC = () => {
         </button>
         <button 
           onClick={handleForward}
-          disabled={historyIdx >= history.length - 1}
+          disabled={!canGoForward}
           className="flex flex-col items-center p-1 border border-transparent disabled:opacity-40 hover:border-t-white hover:border-l-white hover:border-b-black hover:border-r-black active:border-t-black active:border-l-black active:border-b-white active:border-r-white outline-none cursor-pointer"
         >
           <ArrowRight className="w-5 h-5" />
@@ -490,22 +547,21 @@ export const BrowserApp: React.FC = () => {
           <span className="text-[9px] font-bold">Home</span>
         </button>
         <div className="h-8 w-[1px] bg-[#808080] mx-1" />
-        <div className="flex items-center gap-1.5 flex-1 pl-1">
+        <form onSubmit={handleSubmit} className="flex items-center gap-1.5 flex-1 pl-1">
           <span className="text-xs font-bold font-mono">Address:</span>
           <input 
             type="text" 
             value={inputUrl}
             onChange={(e) => setInputUrl(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleNavigate(inputUrl)}
             className="flex-1 bg-white border-2 border-t-[#808080] border-l-[#808080] border-b-white border-r-white px-2 py-1 text-xs outline-none font-mono text-black shadow-inner select-text"
           />
           <button 
-            onClick={() => handleNavigate(inputUrl)}
+            type="submit"
             className="px-3 py-1 bg-[#c0c0c0] font-bold border-2 border-t-white border-l-white border-b-black border-r-black active:border-t-black active:border-l-black active:border-b-white active:border-r-white text-xs cursor-pointer"
           >
             Go
           </button>
-        </div>
+        </form>
       </div>
 
       {/* 3. Browser Viewport Area */}
@@ -561,7 +617,7 @@ export const BrowserApp: React.FC = () => {
               </div>
             ) : errorMsg ? (
               /* Error fallback dialog */
-              <div className="w-full h-full flex flex-col items-center justify-center font-pixel text-black p-4 gap-4 text-center">
+              <div className="w-full h-full flex flex-col items-center justify-center font-pixel text-black p-4 gap-4 text-center select-none">
                 <AlertCircle className="w-12 h-12 text-red-600" />
                 <div className="text-sm font-bold max-w-sm">{errorMsg}</div>
                 <div className="flex gap-2">
